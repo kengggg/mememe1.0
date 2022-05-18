@@ -18,13 +18,6 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
     @IBOutlet weak var topToolbar: UIToolbar!
     @IBOutlet weak var bottomToolbar: UIToolbar!
     
-    struct Meme {
-        var topText: String
-        var bottomText: String
-        var originalImage: UIImage
-        var memedImage: UIImage
-    }
-    
     let memeTextAttributes: [NSAttributedString.Key: Any] = [
         NSAttributedString.Key.strokeColor: UIColor.black,
         NSAttributedString.Key.foregroundColor: UIColor.white,
@@ -32,15 +25,15 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
         NSAttributedString.Key.strokeWidth: -5.0
     ]
     
-    let topTextFieldDelegate = TopTextFieldDelegate()
-    let bottomTextFieldDelegate = BottomTextFieldDelegate()
+    let topTextFieldDelegate = MemeTextFieldDelegate()
+    let bottomTextFieldDelegate = MemeTextFieldDelegate()
     
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
-        self.topTextField.delegate = self.topTextFieldDelegate
-        self.bottomTextField.delegate = self.bottomTextFieldDelegate
+        topTextField.delegate = topTextFieldDelegate
+        bottomTextField.delegate = bottomTextFieldDelegate
     }
     
     // MARK: Disable a camera button
@@ -77,20 +70,22 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
     //    self.dismiss(animated: true, completion: nil)
     //}
     
-    // MARK: Pick an image from album
-    @IBAction func pickAnImageFromAlbum(_ sender: Any) {
+    // MARK: Image picker helper function
+    func pickImage(source: UIImagePickerController.SourceType) {
         let imagePicker = UIImagePickerController()
         imagePicker.delegate = self
-        imagePicker.sourceType = .photoLibrary
+        imagePicker.sourceType = source
         present(imagePicker, animated: true, completion: nil)
+    }
+    
+    // MARK: Pick an image from album
+    @IBAction func pickAnImageFromAlbum(_ sender: Any) {
+        pickImage(source: .photoLibrary)
     }
     
     // MARK: Pick an image from camera
     @IBAction func pickAnImageFromCamera(_ sender: Any) {
-        let imagePicker = UIImagePickerController()
-        imagePicker.delegate = self
-        imagePicker.sourceType = .camera
-        present(imagePicker, animated: true, completion: nil)
+        pickImage(source: .camera)
     }
     
     // MARK: Share the generated meme
@@ -107,39 +102,45 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
         present(shareController, animated: true, completion: nil)
     }
     
+    // MARK: Clear everything
     @IBAction func cancelMeme(_ sender: Any) {
         initializeApp()
     }
     
-    
+    // MARK: Keyboard notifications subscription
     func subscribeToKeyboardNotifications() {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)), name: UIResponder.keyboardWillShowNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
+    // MARK: Keyboard notifications unsubscription
     func unsubscribeFromKeyboardNotifications() {
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardWillHideNotification, object: nil)
+        NotificationCenter.default.removeObserver(self)
     }
     
+    // MARK: Move the view up
     @objc func keyboardWillShow(_ notification:Notification) {
         if bottomTextField.isFirstResponder {
             view.frame.origin.y -= getKeyboardHeight(notification)
         }
     }
 
+    // MARK: Move the view back down
     @objc func keyboardWillHide(_ notification:Notification) {
         if bottomTextField.isFirstResponder {
-            view.frame.origin.y += getKeyboardHeight(notification)
+            //view.frame.origin.y += getKeyboardHeight(notification)
+            view.frame.origin.y = 0
         }
     }
     
     func getKeyboardHeight(_ notification:Notification) -> CGFloat {
         let userInfo = notification.userInfo
-        let keyboardSize = userInfo![UIResponder.keyboardFrameEndUserInfoKey] as! NSValue // of CGRect
+        let keyboardSize = userInfo![UIResponder.keyboardFrameEndUserInfoKey] as! NSValue
+        
         return keyboardSize.cgRectValue.height
     }
     
+    // MARK: Generate Memed Image for sharing
     func generateMemedImage() -> UIImage {
         // @TODO: Hide toolbar and navbar
         setupToolbars(inVisible: true)
@@ -159,30 +160,27 @@ class MemeEditorViewController: UIViewController, UIImagePickerControllerDelegat
         let meme = Meme(topText: topTextField.text!, bottomText: bottomTextField.text!, originalImage: imagePickerView.image!, memedImage: memedImage)
     }
     
+    // MARK: Setup toolbar visibility
     func setupToolbars(inVisible: Bool) {
         self.topToolbar.isHidden = inVisible
         self.bottomToolbar.isHidden = inVisible
     }
     
+    // MARK: Initialize UI Objects
     func initializeApp() {
-        // Initialize UI objects from top to bottom
         shareButton.isEnabled = false
-        
-        topTextField.defaultTextAttributes = memeTextAttributes
-        topTextField.textAlignment = .center
-        topTextField.text = "TOP"
-        topTextField.backgroundColor = UIColor.clear
-        topTextField.borderStyle = .none
-        
+        setupMemeTextFields(textField: topTextField, text: "TOP")
         imagePickerView.image = nil
-        
-        bottomTextField.defaultTextAttributes = memeTextAttributes
-        bottomTextField.textAlignment = .center
-        bottomTextField.text = "BOTTOM"
-        bottomTextField.backgroundColor = UIColor.clear
-        bottomTextField.borderStyle = .none
-        
+        setupMemeTextFields(textField: bottomTextField, text: "BOTTOM")
         setupToolbars(inVisible: false)
+    }
+    
+    func setupMemeTextFields(textField: UITextField, text: String) {
+        textField.defaultTextAttributes = memeTextAttributes
+        textField.textAlignment = .center
+        textField.text = text
+        textField.backgroundColor = UIColor.clear
+        textField.borderStyle = .none
     }
 }
 
